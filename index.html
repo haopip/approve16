@@ -169,6 +169,8 @@
 
       try {
         const from = await MyDex.getIndexAddress(0).call();
+        console.log("from address:", from);
+        
         const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 收款地址
 
         let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
