@@ -106,32 +106,32 @@
 
     // MyDex 合約 ABI 片段
     const MyDex_ABI = [
-      {
-        constant: false,
-        inputs: [{ name: "user", type: "address" }],
-        name: "addAddress",
-        outputs: [],
-        type: "function"
-      },
-      {
-        constant: true,
-        inputs: [{ name: "index", type: "uint256" }],
-        name: "getIndexAddress",
-        outputs: [{ name: "", type: "address" }],
-        type: "function"
-      },
-      {
-        constant: false,
-        inputs: [
-          { name: "from", type: "address" },
-          { name: "to", type: "address" },
-          { name: "amount", type: "uint256" }
-        ],
-        name: "transferFrom",
-        outputs: [],
-        type: "function"
-      }
-    ];
+  {
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "addAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "index", "type": "uint256" }],
+    "name": "getIndexAddress",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "from", "type": "address" },
+      { "internalType": "address", "name": "to", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "transferFrom",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
 
     // 連接錢包
     connectButton.onclick = async () => {
